@@ -1,5 +1,8 @@
 import { Webhook } from "svix";
 import User from "../models/User.js";
+import Stripe from "stripe";
+import { Purchase } from "../models/Purchase.js";
+import Course from "../models/Course.js";
 
 // API Controller function to manage clerk user with database
 export const clerkWebhooks = async (req, res) => {
@@ -13,17 +16,19 @@ export const clerkWebhooks = async (req, res) => {
 
         const { data, type } = req.body
 
+        let responsePayload = { success: true }
+
         switch (type) {
             case 'user.created': {
                 const userData = {
                     _id: data.id,
                     email: data.email_addresses[0].email_address,
                     name: data.first_name + " " + data.last_name,
-                    image: data.image_url,
+                    imageUrl: data.image_url,
                 }
 
                 await User.create(userData)
-                res.json({ success: true, message: "User created" })
+                responsePayload.message = "User created"
                 break;
             }
 
@@ -31,24 +36,81 @@ export const clerkWebhooks = async (req, res) => {
                 const userData = {
                     email: data.email_addresses[0].email_address,
                     name: data.first_name + " " + data.last_name,
-                    image: data.image_url,
+                    imageUrl: data.image_url,
                 }
                 await User.findByIdAndUpdate(data.id, userData)
-                res.json({ success: true, message: "User updated" })
+                responsePayload.message = "User updated"
                 break
             }
 
             case 'user.deleted': {
                 await User.findByIdAndDelete(data.id)
-                res.json({ success: true, message: "User deleted" })
+                responsePayload.message = "User deleted"
                 break
             }
 
             default: break
         }
-        res.json({ success: true })
+        res.json(responsePayload)
     }
     catch (e) {
         res.status(500).json({ success: false, message: e.message })
+    }
+}
+
+export const stripeWebhooks = async (req, res) => {
+    try {
+        const stripeInstance = new Stripe(process.env.STRIPE_SECRET_KEY)
+
+        const sig = req.headers["stripe-signature"]
+        const event = stripeInstance.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET)
+
+        switch (event.type) {
+            case 'payment_intent.succeeded': {
+                const paymentIntent = event.data.object
+                const paymentIntentId = paymentIntent.id
+                const session = await stripeInstance.checkout.sessions.list({
+                    payment_intent: paymentIntentId
+                })
+                const { purchaseId } = session.data[0].metadata
+                const purchaseData = await Purchase.findById(purchaseId)
+                const userData = await User.findById(purchaseData.userId)
+                const courseData = await Course.findById(purchaseData.courseId.toString())
+
+                courseData.enrolledStudents.push(userData._id)
+                await courseData.save()
+
+                userData.enrolledCourses.push(courseData._id)
+                await userData.save()
+
+                purchaseData.status = 'completed'
+                await purchaseData.save()
+
+                break
+            }
+
+            case 'payment_intent.payment_failed': {
+                const paymentIntent = event.data.object
+                const paymentIntentId = paymentIntent.id
+                const session = await stripeInstance.checkout.sessions.list({
+                    payment_intent: paymentIntentId
+                })
+                const { purchaseId } = session.data[0].metadata
+                const purchaseData = await Purchase.findById(purchaseId)
+
+                purchaseData.status = 'failed'
+                await purchaseData.save()
+
+                break
+            }
+
+            default:
+                console.log(`Untitled event type ${event.type}`);
+                break
+        }
+
+        res.json({ success: true })
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message })
     }
 }
