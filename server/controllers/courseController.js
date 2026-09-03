@@ -16,10 +16,13 @@ export const getCourseById = async (req, res) => {
     const { id } = req.params
     try {
         const courseData = await Course.findById(id).populate({ path: 'educator' })
-        // remove lectureurl if isfreepreview is false
+        if (!courseData) {
+            return res.status(404).json({ success: false, message: 'Course not found' })
+        }
+        // remove lectureurl if isPreviewFree is false
         courseData.courseContent.forEach(chapter => {
             chapter.chapterContent.forEach(lecture => {
-                if (!lecture.isFreePreview) {
+                if (!lecture.isPreviewFree) {
                     lecture.lectureUrl = ''
                 }
             })
@@ -29,5 +32,6 @@ export const getCourseById = async (req, res) => {
         res.json({ success: false, message: 'Error fetching courses', error: error.message })
     }
 }
+
 
 

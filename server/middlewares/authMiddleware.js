@@ -1,16 +1,19 @@
 import { clerkClient } from '@clerk/express'
 
-export const protectEducator = async (req, res, next)=>{
+export const protectEducator = async (req, res, next) => {
     try {
-    const userId = req.auth.userId
-    const response = await clerkClient.users.getUser(userId)
+        const userId = req.auth?.userId;
+        if (!userId) {
+            return res.status(401).json({ success: false, message: "Unauthorized" });
+        }
+        const response = await clerkClient.users.getUser(userId);
 
-    if (response.publicMetadata.role !== "educator") {
-        return res.status(403).json({message: "Forbidden"})
-    }
-    
-    next()     
+        if (response.publicMetadata?.role !== "educator") {
+            return res.status(403).json({ success: false, message: "Forbidden" });
+        }
+
+        next();
     } catch (error) {
-        return res.status(500).json({message: "Internal Server Error"})
+        return res.status(500).json({ success: false, message: error.message || "Internal Server Error" });
     }
 }

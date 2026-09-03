@@ -1,9 +1,16 @@
 import mongoose from "mongoose";
 
 const connectDB = async () => {
-    mongoose.connection.on('connected', () => console.log("Mongo connected"))
+    if (mongoose.connection.readyState >= 1) {
+        return;
+    }
+    mongoose.connection.on('connected', () => console.log("Mongo connected"));
 
-    await mongoose.connect(`${process.env.MONGODB_URI}/alphax`)
+    let uri = process.env.MONGODB_URI;
+    if (uri && !uri.includes('alphax') && !uri.includes('?')) {
+        uri = `${uri.replace(/\/$/, '')}/alphax`;
+    }
+    await mongoose.connect(uri || process.env.MONGODB_URI);
 }
 
-export default connectDB
+export default connectDB;

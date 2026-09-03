@@ -20,11 +20,12 @@ export const clerkWebhooks = async (req, res) => {
 
         switch (type) {
             case 'user.created': {
+                const fullName = `${data.first_name || ''} ${data.last_name || ''}`.trim() || 'User'
                 const userData = {
                     _id: data.id,
-                    email: data.email_addresses[0].email_address,
-                    name: data.first_name + " " + data.last_name,
-                    imageUrl: data.image_url,
+                    email: data.email_addresses?.[0]?.email_address || '',
+                    name: fullName,
+                    imageUrl: data.image_url || '',
                 }
 
                 await User.create(userData)
@@ -33,10 +34,11 @@ export const clerkWebhooks = async (req, res) => {
             }
 
             case 'user.updated': {
+                const fullName = `${data.first_name || ''} ${data.last_name || ''}`.trim() || 'User'
                 const userData = {
-                    email: data.email_addresses[0].email_address,
-                    name: data.first_name + " " + data.last_name,
-                    imageUrl: data.image_url,
+                    email: data.email_addresses?.[0]?.email_address || '',
+                    name: fullName,
+                    imageUrl: data.image_url || '',
                 }
                 await User.findByIdAndUpdate(data.id, userData)
                 responsePayload.message = "User updated"
@@ -72,19 +74,28 @@ export const stripeWebhooks = async (req, res) => {
                 const session = await stripeInstance.checkout.sessions.list({
                     payment_intent: paymentIntentId
                 })
-                const { purchaseId } = session.data[0].metadata
-                const purchaseData = await Purchase.findById(purchaseId)
-                const userData = await User.findById(purchaseData.userId)
-                const courseData = await Course.findById(purchaseData.courseId.toString())
+                if (session.data && session.data.length > 0 && session.data[0].metadata?.purchaseId) {
+                    const { purchaseId } = session.data[0].metadata
+                    const purchaseData = await Purchase.findById(purchaseId)
+                    if (purchaseData) {
+                        const userData = await User.findById(purchaseData.userId)
+                        const courseData = await Course.findById(purchaseData.courseId.toString())
 
-                courseData.enrolledStudents.push(userData._id)
-                await courseData.save()
+                        if (courseData && userData) {
+                            if (!courseData.enrolledStudents.includes(userData._id)) {
+                                courseData.enrolledStudents.push(userData._id)
+                                await courseData.save()
+                            }
+                            if (!userData.enrolledCourses.some(id => id.toString() === courseData._id.toString())) {
+                                userData.enrolledCourses.push(courseData._id)
+                                await userData.save()
+                            }
+                        }
 
-                userData.enrolledCourses.push(courseData._id)
-                await userData.save()
-
-                purchaseData.status = 'completed'
-                await purchaseData.save()
+                        purchaseData.status = 'completed'
+                        await purchaseData.save()
+                    }
+                }
 
                 break
             }
@@ -95,17 +106,20 @@ export const stripeWebhooks = async (req, res) => {
                 const session = await stripeInstance.checkout.sessions.list({
                     payment_intent: paymentIntentId
                 })
-                const { purchaseId } = session.data[0].metadata
-                const purchaseData = await Purchase.findById(purchaseId)
-
-                purchaseData.status = 'failed'
-                await purchaseData.save()
+                if (session.data && session.data.length > 0 && session.data[0].metadata?.purchaseId) {
+                    const { purchaseId } = session.data[0].metadata
+                    const purchaseData = await Purchase.findById(purchaseId)
+                    if (purchaseData) {
+                        purchaseData.status = 'failed'
+                        await purchaseData.save()
+                    }
+                }
 
                 break
             }
 
             default:
-                console.log(`Untitled event type ${event.type}`);
+                console.log(`Unhandled event type ${event.type}`);
                 break
         }
 

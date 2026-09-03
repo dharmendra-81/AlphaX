@@ -70,4 +70,6 @@ const courseSchema = new mongoose.Schema({
 
 
 const Course = mongoose.model('Course', courseSchema)
+export { Course }
 export default Course
+
