@@ -77,7 +77,7 @@ export const educatorDashboardData = async (req, res) => {
 
         // collect unique enrolled student ids with their course titles
         const enrolledStudentsData = []
-        for(const course of courses){
+        for (const course of courses) {
             const students = await User.find({
                 _id: { $in: course.enrolledStudents }
             }, 'name imageUrl')
@@ -89,8 +89,9 @@ export const educatorDashboardData = async (req, res) => {
                 })
             })
         }
-        res.json({success: true, dashboardData: {totalEarnings, enrolledStudentsData, totalCourses}
-            })
+        res.json({
+            success: true, dashboardData: { totalEarnings, enrolledStudentsData, totalCourses }
+        })
 
     } catch (error) {
         res.json({ success: false, message: 'Error fetching dashboard data', error: error.message })
@@ -105,7 +106,7 @@ export const getEnrolledStudentsData = async (req, res) => {
         const courseIds = courses.map(course => course._id)
 
         const purchases = await Purchase.find({
-            courseId: {$in: courseIds},
+            courseId: { $in: courseIds },
             status: 'completed'
         }).populate('userId', 'name imageUrl').populate('courseId', 'courseTitle')
 
@@ -114,7 +115,7 @@ export const getEnrolledStudentsData = async (req, res) => {
             courseTitle: purchase.courseId.courseTitle,
             purchaseData: purchase.createdAt,
         }))
-        
+
         res.json({ success: true, enrolledStudents })
     } catch (error) {
         res.json({ success: false, message: 'Error fetching enrolled students data', error: error.message })
