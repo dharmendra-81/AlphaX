@@ -4,7 +4,9 @@ import User from "../models/User.js";
 // get all courses
 export const getAllCourse = async (req, res) => {
     try {
-        const courses = await Course.find({ isPublished: true }).select(['-courseContent', '-enrolledStudents']).populate({ path: 'educator' })
+        const courses = await Course.find({ isPublished: true })
+            .select(['-courseContent', '-enrolledStudents'])
+            .populate({ path: 'educator', select: 'name email imageUrl' })
         res.json({ success: true, courses })
     } catch (error) {
         res.json({ success: false, message: 'Error fetching courses', error: error.message })
@@ -15,13 +17,15 @@ export const getAllCourse = async (req, res) => {
 export const getCourseById = async (req, res) => {
     const { id } = req.params
     try {
-        const courseData = await Course.findById(id).populate({ path: 'educator' })
+        const courseData = await Course.findById(id)
+            .populate({ path: 'educator', select: 'name email imageUrl' })
+            .lean()
         if (!courseData) {
             return res.status(404).json({ success: false, message: 'Course not found' })
         }
         // remove lectureurl if isPreviewFree is false
-        courseData.courseContent.forEach(chapter => {
-            chapter.chapterContent.forEach(lecture => {
+        courseData.courseContent?.forEach(chapter => {
+            chapter.chapterContent?.forEach(lecture => {
                 if (!lecture.isPreviewFree) {
                     lecture.lectureUrl = ''
                 }
@@ -29,9 +33,6 @@ export const getCourseById = async (req, res) => {
         })
         res.json({ success: true, courseData })
     } catch (error) {
-        res.json({ success: false, message: 'Error fetching courses', error: error.message })
+        res.json({ success: false, message: 'Error fetching course', error: error.message })
     }
 }
-
-
-

@@ -19,6 +19,12 @@ await connectCloudinary()
 // Middlewares
 app.use(cors())
 app.use(clerkMiddleware())
+app.use((req, res, next) => {
+    if (typeof req.auth === 'function') {
+        Object.assign(req.auth, req.auth())
+    }
+    next()
+})
 
 // Routes
 app.get('/', (req, res) => res.send('API working'))
@@ -29,7 +35,7 @@ app.use('/api/user', express.json(), userRouter)
 app.post('/stripe', express.raw({ type: 'application/json' }), stripeWebhooks)
 
 // Port
-const PORT = process.env.PORT || 3000
+const PORT = process.env.PORT || 5001
 
 if (process.env.NODE_ENV !== 'test') {
     app.listen(PORT, () => console.log(`Server running on port http://localhost:${PORT}`))

@@ -1,11 +1,16 @@
 import React, { useContext, useEffect, useRef, useState } from 'react'
 import Quill from 'quill'
-import uniqid from 'uniqid'
 import { assets } from '../../assets/assets'
 import { AppContext } from '../../context/AppContext'
 import { toast } from 'react-toastify'
 import axios from 'axios'
 
+const generateId = () => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID()
+  }
+  return 'id_' + Math.random().toString(36).substring(2, 9) + Date.now().toString(36)
+}
 
 const AddCourse = () => {
 
@@ -32,7 +37,7 @@ const AddCourse = () => {
       const title = prompt('Enter Chapter Name:')
       if (title) {
         const newChapter = {
-          chapterId: uniqid(),
+          chapterId: generateId(),
           chapterTitle: title,
           chapterContent: [],
           collapsed: false,
@@ -53,11 +58,11 @@ const AddCourse = () => {
   }
 
   const handleLecture = (action, chapterId, lectureIndex) => {
-    if (action == 'add') {
+    if (action === 'add') {
       setCurrentChapterId(chapterId)
       setShowPopup(true)
     }
-    else if (action == 'remove') {
+    else if (action === 'remove') {
       setChapters(chapters.map((chapter) => {
         if (chapter.chapterId === chapterId) {
           return {
@@ -76,7 +81,7 @@ const AddCourse = () => {
         if (chapter.chapterId === currentChapterId) {
           const newLecture = {
             ...lectureDetails,
-            lectureId: uniqid(),
+            lectureId: generateId(),
             lectureOrder: chapter.chapterContent.length > 0 ? chapter.chapterContent.slice(-1)[0].lectureOrder + 1 : 1,
           }
           return {
@@ -104,9 +109,11 @@ const AddCourse = () => {
         return
       }
 
+      const description = quillRef.current ? quillRef.current.root.innerHTML : ''
+
       const courseData = {
         courseTitle,
-        courseDescription: quillRef.current.getContents(),
+        courseDescription: description,
         coursePrice: Number(coursePrice),
         discount: Number(discount),
         courseContent: chapters
@@ -117,6 +124,8 @@ const AddCourse = () => {
       formData.append('courseData', JSON.stringify(courseData))
 
       const token = await getToken()
+      if (!token) return toast.warn("Please sign in as an educator")
+
       const { data } = await axios.post(backendUrl + '/api/educator/add-course', formData, { headers: { Authorization: `Bearer ${token}` } })
 
       if (data.success) {
@@ -126,7 +135,9 @@ const AddCourse = () => {
         setDiscount(0)
         setImage(null)
         setChapters([])
-        quillRef.current.root.innerHTML = ''
+        if (quillRef.current) {
+          quillRef.current.root.innerHTML = ''
+        }
       } else {
         toast.error(data.message)
       }
@@ -167,10 +178,10 @@ const AddCourse = () => {
 
           <div className='flex md:flex-row flex-col items-center gap-3'>
             <p>Course Thumbnail</p>
-            <label htmlFor="thumbnailImage" className='flex items-center gap-3'>
+            <label htmlFor="thumbnailImage" className='flex items-center gap-3 cursor-pointer'>
               <img src={assets.file_upload_icon} alt="" className='p-3 bg-blue-500 rounded' />
               <input type="file" id='thumbnailImage' onChange={e => setImage(e.target.files[0])} accept='image/*' hidden />
-              <img src={image ? URL.createObjectURL(image) : assets.upload_area_icon} alt="" className='max-h-10' />
+              <img src={image ? URL.createObjectURL(image) : (assets.upload_area || assets.upload_area_icon)} alt="" className='max-h-10' />
             </label>
           </div>
         </div>
@@ -199,7 +210,7 @@ const AddCourse = () => {
                   {chapter.chapterContent.map((lecture, lectureIndex) => (
                     <div key={lectureIndex} className='flex justify-between items-center mb-2'>
                       <span>{lectureIndex + 1} {lecture.lectureTitle} - {lecture.lectureDuration} mins -
-                        <a href={lecture.lectureUrl} target='_blank' className='text-blue-500'>Link</a> - {lecture.isPreviewFree ? 'Free Preview' : 'Paid'}
+                        <a href={lecture.lectureUrl} target='_blank' rel='noreferrer' className='text-blue-500'>Link</a> - {lecture.isPreviewFree ? 'Free Preview' : 'Paid'}
                       </span>
                       <img src={assets.cross_icon} alt="" className='cursor-pointer'
                         onClick={() => handleLecture('remove', chapter.chapterId, lectureIndex)} />
@@ -242,7 +253,7 @@ const AddCourse = () => {
                     onChange={(e) => setLectureDetails({ ...lectureDetails, isPreviewFree: e.target.checked })} />
                 </div>
 
-                <button type='button' onClick={addLecture} className='w-full bg-blue-400 text-white px-4 py-2 rounded'>Add</button>
+                <button type='button' onClick={addLecture} className='w-full bg-blue-400 text-white px-4 py-2 rounded cursor-pointer'>Add</button>
 
                 <img src={assets.cross_icon} alt="" className='absolute top-4 right-4 w-4 cursor-pointer'
                   onClick={() => setShowPopup(false)} />

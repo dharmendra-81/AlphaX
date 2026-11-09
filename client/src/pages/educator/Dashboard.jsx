@@ -1,7 +1,9 @@
 import React, { useContext, useEffect, useState } from 'react'
 import { AppContext } from '../../context/AppContext'
-import { assets, dummyDashboardData } from '../../assets/assets'
+import { assets } from '../../assets/assets'
 import Loading from '../../components/student/Loading'
+import axios from 'axios'
+import { toast } from 'react-toastify'
 
 const Dashboard = () => {
   const { currency, backendUrl, getToken, isEducator } = useContext(AppContext)
@@ -10,7 +12,9 @@ const Dashboard = () => {
   const fetchDashboardData = async () => {
     try{
       const token = await getToken()
-      const {data} = await axios.get(backendUrl + '/api/educator/dashboard', { headers: { Authorization: `Bearer ${token}` } })
+      if (!token) return
+
+      const { data } = await axios.get(backendUrl + '/api/educator/dashboard', { headers: { Authorization: `Bearer ${token}` } })
       if(data.success){
         setDashboardData(data.dashboardData)
       }else{
@@ -33,7 +37,7 @@ const Dashboard = () => {
           <div className='flex items-center gap-3 shadow-card border border-blue-500 p-4 w-57 rounded-md'>
             <img src={assets.person_tick_icon} alt='enrollments' />
             <div>
-              <p className='text-2xl font-medium text-gray-600'>{dashboardData.enrolledStudentsData.length} </p>
+              <p className='text-2xl font-medium text-gray-600'>{dashboardData.enrolledStudentsData?.length || 0} </p>
               <p className='text-base text-gray-500'>Total Enrollments</p>
             </div>
           </div>
@@ -41,15 +45,15 @@ const Dashboard = () => {
           <div className='flex items-center gap-3 shadow-card border border-blue-500 p-4 w-56 rounded-md'>
             <img src={assets.my_course_icon} alt='courses' />
             <div>
-              <p className='text-2xl font-medium text-gray-600'>{dashboardData.totalCourses} </p>
+              <p className='text-2xl font-medium text-gray-600'>{dashboardData.totalCourses || 0} </p>
               <p className='text-base text-gray-500'>Total Courses</p>
             </div>
           </div>
 
           <div className='flex items-center gap-3 shadow-card border border-blue-500 p-4 w-56 rounded-md'>
-            <img src={assets.earning_icon} alt='patients' />
+            <img src={assets.earning_icon} alt='earnings' />
             <div>
-              <p className='text-2xl font-medium text-gray-600'>{currency}{dashboardData.totalEarnings} </p>
+              <p className='text-2xl font-medium text-gray-600'>{currency}{dashboardData.totalEarnings || 0} </p>
               <p className='text-base text-gray-500'>Total Earnings</p>
             </div>
           </div>
@@ -65,17 +69,15 @@ const Dashboard = () => {
                   <th className='px-4 py-3 font-semibold text-center hidden sm:table-cell'>#</th>
                   <th className='px-4 py-3 font-semibold'>Student Name</th>
                   <th className='px-4 py-3 font-semibold'>Course Title</th>
-
-
                 </tr>
               </thead>
               <tbody className='text-sm text-gray-500'>
-                {dashboardData.enrolledStudentsData.map((item, index) => (
+                {(dashboardData.enrolledStudentsData || []).map((item, index) => (
                   <tr key={index} className='border-b border-gray-500/20'>
                     <td className='px-4 py-3 text-center hidden sm:table-cell'>{index + 1}</td>
                     <td className='md:px-4 px-2 py-3 flex items-center space-x-3'>
-                      <img src={item.student.imageUrl} alt="Profile" className='w-9 h-9 rounded-full' />
-                      <span className='truncate'>{item.student.name}</span>
+                      <img src={item.student?.imageUrl || assets.profile_img} alt="Profile" className='w-9 h-9 rounded-full object-cover' />
+                      <span className='truncate'>{item.student?.name || 'Student'}</span>
                     </td>
                     <td className='px-4 py-3 truncate'>{item.courseTitle}</td>
                   </tr>

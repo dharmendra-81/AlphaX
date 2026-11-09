@@ -66,6 +66,7 @@ export const assets = {
     dropdown_icon,
     cross_icon,
     upload_area,
+    upload_area_icon: upload_area,
     logo_dark,
     down_arrow_icon,
     time_left_clock_icon,
